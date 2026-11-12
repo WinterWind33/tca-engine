@@ -212,8 +212,12 @@ jobs:
             exit 1
           fi
 
+          # `--admin`: main's ruleset requires the Linux and Windows checks, but those workflows
+          # skip release-please--** branches, so the release PR never gets them and stays BLOCKED
+          # (which the loop above accepts). The token's owner is a repository admin, whom the
+          # ruleset lets bypass its requirements; --admin is what makes the merge use that bypass.
           for attempt in $(seq 1 5); do
-            if gh pr merge --repo "$REPO" --squash --delete-branch "$PR_NUMBER"; then
+            if gh pr merge --repo "$REPO" --squash --admin --delete-branch "$PR_NUMBER"; then
               exit 0
             fi
             echo "Merge of #${PR_NUMBER} was rejected; the branch moved under us. Retrying (${attempt}/5)"
