@@ -76,7 +76,7 @@ runs:
         status=0
         for test in "${tests[@]}"; do
           if "$test" > "$test.log" 2>&1; then
-            echo "$test: $(grep -E '^(All tests passed|test cases:|assertions:)' "$test.log" | paste -sd ' ')"
+            echo "$test: $(grep -E '^(All tests passed|test cases:|assertions:)' "$test.log" | paste -sd ' ' -)"
           else
             cat "$test.log"
             status=1
