@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `platform::images::decode_image_from_file()` works on macOS, through the same stb_image decoder as Linux.
+
 ## [0.24.0] - 2026-10-27
 
 ### Added

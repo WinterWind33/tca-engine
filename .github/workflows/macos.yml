@@ -26,35 +26,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Apple Clang only. GCC cannot build the engine on macOS: miniaudio includes Apple's CoreAudio,
+  # AudioToolbox and CoreMIDI headers, which use Clang's blocks extension (`^` closures) and
+  # Clang-only availability attributes that GCC does not parse. GCC is covered on Linux.
   build-and-test:
-    name: macOS / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    name: macOS / apple-clang / ${{ matrix.build_type }}
     runs-on: macos-latest
 
     strategy:
       fail-fast: false
       matrix:
-        compiler: [apple-clang, gcc]
         build_type: [Debug, Release]
+
+    env:
+      CC: clang
+      CXX: clang++
 
     steps:
       - uses: actions/checkout@v7
 
-      # Apple Clang is the Xcode default. GCC is the newest Homebrew g++-<N> the runner image
-      # ships, so nothing is installed for it.
-      - name: Select the compiler
-        env:
-          COMPILER: ${{ matrix.compiler }}
-        run: |
-          set -euo pipefail
-          if [ "$COMPILER" = "gcc" ]; then
-            gxx="$(ls "$(brew --prefix)"/bin/g++-[0-9]* | sort -V | tail -1)"
-            echo "CC=${gxx/g++-/gcc-}" >> "$GITHUB_ENV"
-            echo "CXX=$gxx" >> "$GITHUB_ENV"
-          else
-            echo "CC=clang" >> "$GITHUB_ENV"
-            echo "CXX=clang++" >> "$GITHUB_ENV"
-          fi
-          command -v ninja > /dev/null || brew install ninja
+      - name: Install Ninja
+        run: command -v ninja > /dev/null || brew install ninja
 
       # Release-only dependencies, as on Linux: libc++ and libstdc++ each have a single ABI, so the
       # Debug build links them fine.

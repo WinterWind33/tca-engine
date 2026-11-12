@@ -65,7 +65,7 @@ Errors from the backend's upload propagate unchanged, as with `load_from_file()`
 ### Decode, edit, upload
 
 `platform::images::decode_image_from_file()` is public API for games. It decodes PNG and the
-other formats the platform decoder supports (WIC on Windows, stb_image on Linux) into the format
+other formats the platform decoder supports (WIC on Windows, stb_image on Linux and macOS) into the format
 above, on every platform, so a game can decode source art, change it and upload the result:
 
 ```cpp

@@ -80,8 +80,8 @@ if(NOT WIN32)
 endif()
 
 # stb is a collection of single-header libraries and does not ship its own CMake support. Only
-# stb_image.h is needed here (used as the Linux image decoder backend), exposed as an INTERFACE
-# target.
+# stb_image.h is needed here (the image decoder backend everywhere but Windows), exposed as an
+# INTERFACE target.
 add_library(stb-image INTERFACE)
 target_include_directories(stb-image SYSTEM INTERFACE ${stb_SOURCE_DIR})
 

@@ -22,8 +22,9 @@ directly from their git repositories at configure time by `third-party/CMakeList
 
 Most of `platform`, `rendering` and `application` fork on `WIN32` — the Win32 sources
 (DirectX 12 / OpenGL3 rendering backends, Win32 windowing, WIC image decoding) only build
-on Windows; Linux builds the `UNIX AND NOT APPLE` path (GLFW window, stb_image-backed decoder,
-XDG-style folders), and macOS only the platform-neutral code plus its own `platform/macos/` sources.
+on Windows; Linux builds the `UNIX AND NOT APPLE` path (GLFW window, XDG-style folders), and macOS
+only the platform-neutral code plus its own `platform/macos/` sources. Both decode images with
+stb_image (`platform/stb/`).
 CI builds and tests all three on every push (see Build and test below).
 `TCA_ENGINE_BUILD_WEB_MODULE` and `TCA_ENGINE_BUILD_SETTINGS_MODULE` (both default `ON`) opt the
 `web` and `settings` modules in/out. The `settings` module is the only thing pulling nlohmann-json
@@ -78,7 +79,7 @@ directory. When checking a change, rebuild first and run only the tags you touch
 
 CI builds and tests Debug and Release, with `-DTCA_ENGINE_WARNINGS_AS_ERRORS=ON`, on every push
 to every branch: `.github/workflows/linux.yml` (gcc, clang), `windows.yml` (MSVC, clang) and
-`macos.yml` (Apple Clang, gcc), all through the shared `.github/actions/build-and-test` action.
+`macos.yml` (Apple Clang), all through the shared `.github/actions/build-and-test` action.
 Nothing is cached, so every run starts from a clean vcpkg checkout at the baseline `vcpkg.json`
 pins. Match the warnings flag locally before pushing if you've touched anything that might warn.
 

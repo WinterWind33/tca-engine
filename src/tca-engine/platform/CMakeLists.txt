@@ -50,6 +50,11 @@ if(WIN32)
 endif()
 
 if(UNIX)
+    # Every non-Windows platform decodes images with stb_image; Windows uses WIC instead.
+    list(APPEND TCA_ENGINE_PLATFORM_MODULE_SOURCE_FILES
+        stb/image-decoder.cpp
+    )
+
     if(NOT APPLE)
         list(APPEND TCA_ENGINE_PLATFORM_MODULE_HEADER_FILES
           linux/linux-application-window.hpp
@@ -59,7 +64,6 @@ if(UNIX)
         list(APPEND TCA_ENGINE_PLATFORM_MODULE_SOURCE_FILES
           linux/folders.cpp
           linux/system-information.cpp
-          linux/image-decoder.cpp
           linux/linux-application-window.cpp
           linux/linux-keyboard.cpp
         )
@@ -92,8 +96,11 @@ if(WIN32)
     endif()
 endif()
 
-if(UNIX AND NOT APPLE)
+if(UNIX)
     target_link_libraries(tca-engine-platform PRIVATE stb-image)
+endif()
+
+if(UNIX AND NOT APPLE)
     # PUBLIC: linux-application-window.hpp includes <GLFW/glfw3.h> directly, so consumers of
     # this target need GLFW's include directories too, not just this target's own sources.
     target_link_libraries(tca-engine-platform PUBLIC glfw)
