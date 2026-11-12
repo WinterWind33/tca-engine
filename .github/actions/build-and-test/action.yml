@@ -18,15 +18,16 @@ runs:
   using: composite
   steps:
     # No caching anywhere, so every run builds from a clean slate. vcpkg is fetched at the exact
-    # commit vcpkg.json names as its baseline, so that commit is pinned in one place only. A
-    # blobless clone keeps the history vcpkg's versioning needs while downloading only the port
-    # files that are actually checked out.
+    # commit vcpkg.json names as its baseline, so that commit is pinned in one place only. It has
+    # to be a full clone: vcpkg reads older port versions straight from git history, and a partial
+    # (blobless) clone makes it fetch the missing objects during configure, which fails on Windows
+    # because vcpkg runs git with a scrubbed environment that cannot reach github.com.
     - name: Bootstrap vcpkg
       shell: bash
       run: |
         set -euo pipefail
         baseline="$(jq -r '."builtin-baseline"' vcpkg.json)"
-        git clone --quiet --filter=blob:none --no-checkout https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg"
+        git clone --quiet --no-checkout https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg"
         git -C "$RUNNER_TEMP/vcpkg" checkout --quiet "$baseline"
         if [ "$RUNNER_OS" = "Windows" ]; then
           (cd "$RUNNER_TEMP/vcpkg" && cmd //c bootstrap-vcpkg.bat -disableMetrics)
