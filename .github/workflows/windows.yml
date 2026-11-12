@@ -1,0 +1,77 @@
+# Copyright (c) 2026 Andrea Ballestrazzi
+# SPDX-License-Identifier: MIT
+name: Windows
+
+# Same triggers as linux.yml; see the comment there.
+on:
+  push:
+    branches-ignore:
+      - "release-please--**"
+    paths-ignore:
+      - ".vscode/*.json"
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
+      - ".clang-format"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # No GCC here: the Win32 sources build against WIL, DirectX 12 and vcpkg's MSVC-ABI x64-windows
+  # packages, none of which MinGW's GCC supports. Clang is the GNU-style clang++ driver targeting
+  # the MSVC ABI, the case CMakeLists.txt handles under `WIN32 AND NOT MSVC`.
+  build-and-test:
+    name: Windows / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [msvc, clang]
+        build_type: [Debug, Release]
+        include:
+          - compiler: msvc
+            cc: cl
+            cxx: cl
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+          # A Debug build links the debug CRT, so its dependencies need debug builds too; Release
+          # skips them.
+          - build_type: Debug
+            triplet: x64-windows
+          - build_type: Release
+            triplet: x64-windows-release
+
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # cl.exe, the Windows SDK and Ninja on the PATH; clang++ needs the SDK and the linker too.
+      - name: Set up the MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # Hosted runners have no GPU. DirectX 12 falls back to WARP on its own, but Windows' built-in
+      # OpenGL is GDI's 1.1 renderer, which cannot create the 3.x context the OpenGL3 tests need.
+      # Mesa's llvmpipe, installed system-wide, provides a software OpenGL 4.x instead.
+      - name: Install Mesa's software OpenGL
+        uses: ssciwr/setup-mesa-dist-win@v3
+
+      - uses: ./.github/actions/build-and-test
+        with:
+          build-type: ${{ matrix.build_type }}
+          triplet: ${{ matrix.triplet }}

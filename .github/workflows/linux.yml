@@ -1,0 +1,87 @@
+# Copyright (c) 2026 Andrea Ballestrazzi
+# SPDX-License-Identifier: MIT
+name: Linux
+
+# The three OS workflows (linux.yml, windows.yml, macos.yml) share these triggers: every push to
+# every branch, main included, except release-please's version-bump branch, which only touches the
+# version and the changelog and is auto-merged straight away. Pushes that change nothing a build
+# reads are skipped too.
+on:
+  push:
+    branches-ignore:
+      - "release-please--**"
+    paths-ignore:
+      - ".vscode/*.json"
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
+      - ".clang-format"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+# A newer push to the same branch supersedes the one still building.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Linux / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        build_type: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # gcc is pinned to a released version, clang is the newest the runner's apt lists offer. gcc
+      # isn't "newest" because the lists offer gcc trunk snapshots, whose false-positive warnings
+      # fail the -Werror build; bump GCC_VERSION by hand once a newer gcc is released.
+      #
+      # The X11 -dev packages are the headers GLFW's X11 backend needs and libgl-dev provides
+      # <GL/gl.h>; the autotools are for vcpkg's source builds of the X11 libraries. No
+      # `apt-get update`: the runner images ship fresh lists. The Azure mirror sometimes crawls on
+      # a single file, and apt never moves to another mirror for a slow download, so a stalled
+      # install is retried once against archive.ubuntu.com.
+      - name: Install the compiler and build tools
+        env:
+          COMPILER: ${{ matrix.compiler }}
+          GCC_VERSION: 15
+        run: |
+          set -euo pipefail
+          if [ "$COMPILER" = "gcc" ]; then
+            packages="gcc-$GCC_VERSION g++-$GCC_VERSION"
+            echo "CC=gcc-$GCC_VERSION" >> "$GITHUB_ENV"
+            echo "CXX=g++-$GCC_VERSION" >> "$GITHUB_ENV"
+          else
+            version="$(apt-cache search '^clang-[0-9]+$' | grep -oP 'clang-\K[0-9]+' | sort -n | tail -1)"
+            packages="clang-$version"
+            echo "CC=clang-$version" >> "$GITHUB_ENV"
+            echo "CXX=clang++-$version" >> "$GITHUB_ENV"
+          fi
+          packages="$packages ninja-build autoconf autoconf-archive automake libtool pkg-config
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev libgl-dev"
+          install() { sudo timeout 300 apt-get install -y --no-install-recommends -o Acquire::Retries=3 $packages; }
+          install || {
+            sudo pkill -x 'apt-get|dpkg' || true
+            sudo dpkg --configure -a || true
+            sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt || true
+            sudo apt-get update
+            install
+          }
+
+      # vcpkg builds the dependencies in release only: libstdc++ has a single ABI, so the Debug
+      # build links them fine, at half the dependency build time.
+      - uses: ./.github/actions/build-and-test
+        with:
+          build-type: ${{ matrix.build_type }}
+          triplet: x64-linux-release

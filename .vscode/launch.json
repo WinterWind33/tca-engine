@@ -1,0 +1,60 @@
+{
+    // The tests run from bin/: the build copies tests/res next to the binary and the tests load
+    // resources by paths relative to it. The demo finds its assets next to its own executable.
+    // VS Code can't switch the debugger type per OS, so Windows and Linux/macOS get their own entries.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Tests (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/tca-engine_tests.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/bin",
+            "stopAtEntry": false,
+            "console": "integratedTerminal",
+            "preLaunchTask": "CMake: build"
+        },
+        {
+            "name": "Demo (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/tca-engine-demo.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/bin",
+            "stopAtEntry": false,
+            "console": "integratedTerminal",
+            "preLaunchTask": "CMake: build"
+        },
+        {
+            "name": "Tests (Linux/macOS)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/tca-engine_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}/bin",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "osx": {
+                "MIMode": "lldb"
+            },
+            "preLaunchTask": "CMake: build"
+        },
+        {
+            "name": "Demo (Linux/macOS)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/tca-engine-demo",
+            "args": [],
+            "cwd": "${workspaceFolder}/bin",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "osx": {
+                "MIMode": "lldb"
+            },
+            "preLaunchTask": "CMake: build"
+        }
+    ]
+}

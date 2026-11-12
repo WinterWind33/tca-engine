@@ -1,0 +1,84 @@
+# Copyright (c) 2026 Andrea Ballestrazzi
+# SPDX-License-Identifier: MIT
+name: Build and test
+description: >-
+  Bootstraps vcpkg at the baseline vcpkg.json pins, configures with warnings as errors, builds the
+  engine, its tests and the examples, and runs every test binary. The caller sets up the compiler
+  first (CC/CXX in the environment, plus the MSVC developer environment on Windows).
+
+inputs:
+  build-type:
+    description: CMAKE_BUILD_TYPE (Debug or Release)
+    required: true
+  triplet:
+    description: vcpkg target triplet the dependencies are built for
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # No caching anywhere, so every run builds from a clean slate. vcpkg is fetched at the exact
+    # commit vcpkg.json names as its baseline, so that commit is pinned in one place only. A
+    # blobless clone keeps the history vcpkg's versioning needs while downloading only the port
+    # files that are actually checked out.
+    - name: Bootstrap vcpkg
+      shell: bash
+      run: |
+        set -euo pipefail
+        baseline="$(jq -r '."builtin-baseline"' vcpkg.json)"
+        git clone --quiet --filter=blob:none --no-checkout https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/vcpkg"
+        git -C "$RUNNER_TEMP/vcpkg" checkout --quiet "$baseline"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          (cd "$RUNNER_TEMP/vcpkg" && cmd //c bootstrap-vcpkg.bat -disableMetrics)
+        else
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+        fi
+        echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+
+    - name: Report compiler
+      shell: bash
+      run: |
+        case "${CXX:-}" in
+          cl|"") echo "CXX=${CXX:-<default>}" ;;
+          *) "$CXX" --version ;;
+        esac
+
+    # pwsh rather than bash on every OS: on Windows, Git Bash puts its own link.exe ahead of
+    # MSVC's on the PATH.
+    - name: Configure
+      shell: pwsh
+      run: >
+        cmake -S . -B build -G Ninja
+        "-DCMAKE_BUILD_TYPE=${{ inputs.build-type }}"
+        -DTCA_ENGINE_BUILD_TESTS=ON
+        -DTCA_ENGINE_BUILD_EXAMPLES=ON
+        -DTCA_ENGINE_WARNINGS_AS_ERRORS=ON
+        "-DVCPKG_TARGET_TRIPLET=${{ inputs.triplet }}"
+        "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+    - name: Build
+      shell: pwsh
+      run: cmake --build build
+
+    # Runs the test binaries directly rather than through ctest: catch_discover_tests registers
+    # every test case as its own ctest test, so ctest starts a new process per case, which is far
+    # slower than running each binary once. Binaries run from bin/, since tests load resources
+    # relative to it. A binary's full output is only printed when it fails; on success only
+    # Catch2's closing summary is.
+    - name: Test
+      shell: bash
+      working-directory: bin
+      run: |
+        shopt -s nullglob
+        tests=(./*_tests ./*_tests.exe)
+        [ ${#tests[@]} -gt 0 ] || { echo "No test binaries found in bin/"; exit 1; }
+        status=0
+        for test in "${tests[@]}"; do
+          if "$test" > "$test.log" 2>&1; then
+            echo "$test: $(grep -E '^(All tests passed|test cases:|assertions:)' "$test.log" | paste -sd ' ')"
+          else
+            cat "$test.log"
+            status=1
+          fi
+        done
+        exit $status

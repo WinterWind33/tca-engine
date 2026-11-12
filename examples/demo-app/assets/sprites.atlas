@@ -1,0 +1,6 @@
+# The regions of sprites.png the demo draws, one per line: name x y width height, in texels
+# measured from the texture's top-left corner. Blank lines and lines starting with '#' are skipped.
+ship-0  0 0 16 16
+ship-1 16 0 16 16
+coin   32 0 16 16
+sparkle 48 0 16 16

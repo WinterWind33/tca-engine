@@ -1,0 +1,38 @@
+# Copyright (c) 2026 Andrea Ballestrazzi
+name: PR title
+
+# PRs are squash-merged, so the PR title becomes the commit message release-please reads. A title
+# without a Conventional Commit type is ignored and no release is cut. This fails such a PR
+# while it is still open. See docs/project/releasing.md and scripts/check_pr_title.py.
+#
+# GitHub has no event for "the merge button was clicked", and merge queue (`merge_group`) needs an
+# organisation-owned repository. `edited` is the next best thing: fixing the title re-runs this
+# straight away, so the check always reflects the title the merge will use.
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: scripts
+
+      # The title and description go through the environment, never straight into the script:
+      # `${{ }}` inside `run:` is pasted into the shell before it runs, so a PR titled
+      # `$(something)` would execute it.
+      - name: Check the PR title is a Conventional Commit
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 scripts/check_pr_title.py --title "$PR_TITLE" --body "$PR_BODY"

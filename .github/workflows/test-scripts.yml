@@ -1,0 +1,50 @@
+# Copyright (c) 2026 Andrea Ballestrazzi
+name: Test Python Scripts
+
+on:
+  push:
+    # Every branch, `main` included. scripts/promote_changelog.py edits CHANGELOG.md during a
+    # release, unattended, so a regression is worth catching on the branch rather than at the
+    # moment a release is being cut.
+    #
+    # `branches` is listed explicitly rather than omitted because omitting it would also trigger
+    # this workflow on tag pushes, and release-please pushes a tag on every release.
+    branches:
+      - "**"
+    # An include list rather than the paths-ignore the build workflow uses: this job is only ever
+    # affected by the scripts themselves, by the release workflow whose shell steps
+    # scripts/test_release_workflow.py drives, and by its own definition.
+    paths:
+      - "scripts/**"
+      - ".github/workflows/release-please.yml"
+      - ".github/workflows/test-scripts.yml"
+
+jobs:
+  test-scripts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # No pip install: the scripts under test use only the standard library, which is what keeps
+      # this job a few seconds rather than a few minutes. A future script needing a third-party
+      # package should install it here explicitly, so the cost of doing so stays visible.
+      #
+      # test_release_workflow.py additionally shells out to bash and jq, which the release
+      # workflow's own steps use and which ubuntu-latest ships. It skips itself where they are
+      # missing, so this check exists to make sure that never silently becomes a skipped job here.
+      - name: Check the tools test_release_workflow.py needs
+        run: |
+          set -euo pipefail
+          bash --version | head -1
+          jq --version
+
+      - name: Run scripts tests
+        working-directory: scripts
+        run: python -m unittest discover -p "test_*.py" --verbose

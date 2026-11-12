@@ -1,0 +1,224 @@
+name: release-please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Two pushes to main in quick succession would otherwise start two runs that both find the same
+# open release PR: they would race to push the promotion commit (one losing on a non-fast-forward)
+# and race to merge it, failing the loser for no real reason. Queue them instead. Never cancel: a
+# cancelled run can leave a release half-made, with the changelog promoted but the PR unmerged.
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # The promotion step below pushes a commit onto release-please's release branch, so this
+      # checkout has to carry a token that can write. Same PAT the action itself uses.
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          fetch-depth: 1
+
+      # Uses a PAT rather than the default GITHUB_TOKEN: the release commit this action
+      # (and the auto-merge step below) pushes to main must NOT be authenticated with
+      # GITHUB_TOKEN, or GitHub's recursive-workflow protection silently drops the `push`
+      # event and this workflow never runs a second time to actually tag the release.
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # The steps below used to be gated on `steps.release.outputs.prs_created`, which is only
+      # true on the run that *creates* the release PR. That made a half-finished release
+      # unrecoverable: when the merge step failed for 0.3.0, every re-run found the PR already
+      # open, reported `prs_created == false`, skipped both remaining steps and exited green —
+      # so re-running the workflow could never finish what the first run started.
+      #
+      # Look the PR up from the repository instead. The steps below then depend on the state of
+      # the release rather than on what this particular run happened to do, which makes a re-run
+      # pick up exactly where the failure left off. `autorelease: pending` is the label
+      # release-please puts on its own release PRs and removes once they are tagged.
+      #
+      # The lookup reads the pulls REST endpoint rather than going through `gh pr list --label`.
+      # Filtering by label sends the query through GitHub's search index, which is only eventually
+      # consistent, and this step runs one second after release-please created the PR: for 0.5.0
+      # the label landed at 10:21:17, this step asked at 10:21:18, got an empty list and skipped
+      # both steps below - leaving the release half-made while the run exited green. The pulls
+      # endpoint is read-your-writes, and returns each PR's labels inline, so the label check
+      # below costs no extra request.
+      #
+      # The retry is still worth having on top of that: release-please opens the PR and applies
+      # the label as two separate calls, so there is a window where the PR exists unlabelled.
+      # It only applies when this run just created the PR, though. The run that *finishes* a
+      # release finds no pending PR at all - release-please swaps the label for `autorelease:
+      # tagged` once it tags - and that is the expected answer, not something to wait out.
+      - name: Find the open release PR
+        id: release_pr
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          REPO: ${{ github.repository }}
+          PRS_CREATED: ${{ steps.release.outputs.prs_created }}
+        run: |
+          set -euo pipefail
+
+          # A re-run over an already-open PR reports prs_created=false, and needs no retry: the
+          # lookup below is index-free, so an existing PR is visible on the first attempt.
+          attempts=1
+          [ "$PRS_CREATED" = "true" ] && attempts=12
+
+          release_pr='{}'
+          for attempt in $(seq 1 "$attempts"); do
+            prs="$(gh api --paginate "repos/$REPO/pulls?state=open&base=main&per_page=100" \
+                     --jq '[.[] | {number, headRefName: .head.ref, labels: [.labels[].name]}]')"
+
+            # Neither check is sufficient on its own. The label alone would hand any PR an
+            # unattended squash merge into main, since anyone who can label a PR could then get
+            # one merged; the branch name alone would merge a release branch release-please has
+            # not finished preparing. Require both.
+            release_pr="$(echo "$prs" | jq -c '[.[]
+              | select(.headRefName | startswith("release-please--"))
+              | select(.labels | index("autorelease: pending"))] | first // {}')"
+
+            echo "$prs" | jq -r '.[]
+              | select(.labels | index("autorelease: pending"))
+              | select(.headRefName | startswith("release-please--") | not)
+              | "::warning::PR #\(.number) (\(.headRefName)) carries the autorelease: pending label but is not a release branch; ignoring it."'
+
+            [ "$release_pr" != '{}' ] && break
+            [ "$attempt" = "$attempts" ] && break
+            echo "No release PR found yet; waiting for release-please to finish opening and labelling it (${attempt}/${attempts})"
+            sleep 5
+          done
+
+          if [ "$release_pr" = '{}' ]; then
+            echo "No open release PR: nothing to promote or merge on this run."
+          fi
+
+          {
+            echo "number=$(echo "$release_pr" | jq -r '.number // ""')"
+            echo "branch=$(echo "$release_pr" | jq -r '.headRefName // ""')"
+          } >> "$GITHUB_OUTPUT"
+
+      # CHANGELOG.md is hand-written (release-please runs with skip-changelog), so nothing has
+      # yet turned its `## [Unreleased]` section into a numbered one. Do that here, on
+      # release-please's own branch, so the promotion lands *inside* the release PR: the commit
+      # that gets tagged then contains the changelog section describing itself. Running it after
+      # the tag instead would leave every release tagged one commit before its own changelog.
+      #
+      # The script is a no-op when `## [Unreleased]` is empty, so a release with no hand-written
+      # entries simply produces no section rather than an empty one. It is also idempotent, which
+      # is what lets this step run again harmlessly on a re-run that is only here to retry the
+      # merge below.
+      - name: Promote the changelog's Unreleased section
+        id: promote
+        if: ${{ steps.release_pr.outputs.number != '' }}
+        env:
+          BRANCH: ${{ steps.release_pr.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+
+          # The manifest on the release branch already carries the version being released, which
+          # makes it a more reliable source than parsing the PR title.
+          version="$(jq -r '.["."]' .release-please-manifest.json)"
+          python3 scripts/promote_changelog.py --version "$version"
+
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "Changelog unchanged; nothing to push."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: promote changelog [Unreleased] section to ${version}" -- CHANGELOG.md
+            git push origin "$BRANCH"
+          fi
+
+          # The commit the merge step must see as the PR's head before it is allowed to merge.
+          # Written whether or not anything was pushed, so a re-run that has nothing to promote
+          # still hands the merge step the SHA to check against.
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # release-please always proposes the version/changelog bump as a PR first, for
+      # auditability. We don't want a manual approval step, so merge it immediately here
+      # instead of waiting on a human. The follow-up push to `main` re-triggers this
+      # workflow, and that second run is what actually tags and publishes the release.
+      #
+      # The wait is not optional. The push in the previous step invalidates GitHub's cached
+      # mergeability for the PR, and until it has been recomputed the merge API rejects the
+      # merge outright — as "Pull Request is not mergeable" for 0.3.0, and as "Base branch was
+      # modified. Review and try the merge again." for 0.5.0.
+      #
+      # Polling `mergeable` alone is what let 0.5.0 through into that window: the field still
+      # held the value computed *before* the promotion commit, so it read MERGEABLE about a
+      # second after the push and the merge was rejected anyway. Three things have to agree
+      # before merging, and all three are needed:
+      #
+      #   - `headRefOid` matches the commit the promotion step left on the branch, so the
+      #     verdict below describes that commit and not the one before it;
+      #   - `mergeStateStatus` is not UNKNOWN, which is GitHub's explicit "still computing";
+      #   - `mergeable` is MERGEABLE.
+      #
+      # The merge itself is then still retried, because none of this closes the window
+      # completely - anything that touches main between the last poll and the merge call
+      # invalidates it again, and a queued second run of this workflow is exactly that.
+      - name: Auto-merge release PR
+        if: ${{ steps.release_pr.outputs.number != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_NUMBER: ${{ steps.release_pr.outputs.number }}
+          REPO: ${{ github.repository }}
+          EXPECTED_HEAD: ${{ steps.promote.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+
+          ready=false
+          for attempt in $(seq 1 30); do
+            # `|| true`: a transient API blip should cost one poll, not the whole release.
+            verdict="$(gh pr view --repo "$REPO" "$PR_NUMBER" \
+              --json mergeable,mergeStateStatus,headRefOid \
+              --jq '"\(.mergeable) \(.mergeStateStatus) \(.headRefOid)"' || true)"
+            read -r state mergeState headOid <<<"$verdict"
+
+            if [ "$state" = "CONFLICTING" ]; then
+              echo "::error::Release PR #${PR_NUMBER} conflicts with main and needs a human."
+              exit 1
+            fi
+
+            if [ -n "$EXPECTED_HEAD" ] && [ "$headOid" != "$EXPECTED_HEAD" ]; then
+              echo "head=${headOid}; waiting for GitHub to catch up with ${EXPECTED_HEAD} (${attempt}/30)"
+            elif [ "$state" != "MERGEABLE" ] || [ "$mergeState" = "UNKNOWN" ]; then
+              echo "mergeable=${state} mergeStateStatus=${mergeState}; waiting for GitHub to compute a verdict (${attempt}/30)"
+            else
+              ready=true
+              break
+            fi
+
+            sleep 5
+          done
+
+          if [ "$ready" != true ]; then
+            echo "::error::GitHub never reported PR #${PR_NUMBER} as mergeable. Re-run this workflow to retry."
+            exit 1
+          fi
+
+          for attempt in $(seq 1 5); do
+            if gh pr merge --repo "$REPO" --squash --delete-branch "$PR_NUMBER"; then
+              exit 0
+            fi
+            echo "Merge of #${PR_NUMBER} was rejected; the branch moved under us. Retrying (${attempt}/5)"
+            sleep 10
+          done
+
+          echo "::error::Could not merge release PR #${PR_NUMBER}. Re-run this workflow to retry."
+          exit 1

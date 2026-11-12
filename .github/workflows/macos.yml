@@ -1,0 +1,64 @@
+# Copyright (c) 2026 Andrea Ballestrazzi
+# SPDX-License-Identifier: MIT
+name: macOS
+
+# Same triggers as linux.yml; see the comment there.
+on:
+  push:
+    branches-ignore:
+      - "release-please--**"
+    paths-ignore:
+      - ".vscode/*.json"
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
+      - ".clang-format"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: macOS / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    runs-on: macos-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [apple-clang, gcc]
+        build_type: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Apple Clang is the Xcode default. GCC is the newest Homebrew g++-<N> the runner image
+      # ships, so nothing is installed for it.
+      - name: Select the compiler
+        env:
+          COMPILER: ${{ matrix.compiler }}
+        run: |
+          set -euo pipefail
+          if [ "$COMPILER" = "gcc" ]; then
+            gxx="$(ls "$(brew --prefix)"/bin/g++-[0-9]* | sort -V | tail -1)"
+            echo "CC=${gxx/g++-/gcc-}" >> "$GITHUB_ENV"
+            echo "CXX=$gxx" >> "$GITHUB_ENV"
+          else
+            echo "CC=clang" >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
+          fi
+          command -v ninja > /dev/null || brew install ninja
+
+      # Release-only dependencies, as on Linux: libc++ and libstdc++ each have a single ABI, so the
+      # Debug build links them fine.
+      - uses: ./.github/actions/build-and-test
+        with:
+          build-type: ${{ matrix.build_type }}
+          triplet: arm64-osx-release

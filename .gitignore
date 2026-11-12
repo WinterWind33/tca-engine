@@ -1,0 +1,79 @@
+# Build trees
+build/
+build-msvc/
+out/
+cmake-build-*/
+
+# Output directories
+bin/
+lib/
+
+# vcpkg
+vcpkg_installed/
+
+# third-party libraries fetched at configure time by third-party/CMakeLists.txt
+# (into third-party/<name>, not build/) - only the CMake glue itself is tracked
+third-party/*
+!third-party/CMakeLists.txt
+!third-party/cmake/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+# CTest's scratch folder. Spelled out to its actual subfolder rather than as a bare "Testing/":
+# git matches ignore rules case-insensitively on Windows and macOS, so a bare rule also swallows
+# any source folder named "testing" - src/tca-engine/testing/ and tests/testing/ both are.
+Testing/Temporary/
+_deps/
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.lo
+*.slo
+*.gch
+*.pch
+*.d
+*.so
+*.so.*
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+*.app
+*.pdb
+*.ilk
+*.exp
+
+# Editors and IDEs
+# .vscode/ is shared; the workspace file is personal
+*.code-workspace
+.vs/
+.idea/
+.cache/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python bytecode caches, from the helper scripts under scripts/.
+__pycache__/
+*.py[cod]
+
+# Written next to the working directory by a running application (the examples under examples/,
+# and any game built on the engine): Dear ImGui's window layout and the engine's log file.
+imgui.ini
+logs/
+
+# Personal scratch notes (plans, checklists) kept next to the code but never committed.
+*.temp.md

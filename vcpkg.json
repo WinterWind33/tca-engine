@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "builtin-baseline": "f781d9387e4684783e69e136e2e124ff4660bffc",
+  "dependencies": [
+    "ms-gsl",
+    "catch2",
+    {
+      "name": "wil",
+      "version>=": "1.0.260126.7",
+      "platform": "windows"
+    },
+    {
+      "name": "spdlog",
+      "version>=": "1.17.0"
+    },
+    {
+      "name": "eigen3",
+      "version>=": "5.0.1"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.12.0"
+    },
+    {
+      "name": "glfw3",
+      "version>=": "3.5.1",
+      "platform": "linux"
+    }
+  ],
+  "name": "tca-engine"
+}

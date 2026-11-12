@@ -1,0 +1,285 @@
+// Copyright (c) 2026 Andrea Ballestrazzi
+// SPDX-License-Identifier: MIT
+#include "input/key.hpp"
+
+// C++ STL
+#include <cstddef>
+#include <optional>
+#include <string_view>
+
+namespace tca::engine::input {
+
+std::string_view key_name(const key k) noexcept {
+    // No default on purpose: -Wswitch turns a key added without a name into a build error.
+    switch (k) {
+        case key::a:
+            return "a";
+        case key::b:
+            return "b";
+        case key::c:
+            return "c";
+        case key::d:
+            return "d";
+        case key::e:
+            return "e";
+        case key::f:
+            return "f";
+        case key::g:
+            return "g";
+        case key::h:
+            return "h";
+        case key::i:
+            return "i";
+        case key::j:
+            return "j";
+        case key::k:
+            return "k";
+        case key::l:
+            return "l";
+        case key::m:
+            return "m";
+        case key::n:
+            return "n";
+        case key::o:
+            return "o";
+        case key::p:
+            return "p";
+        case key::q:
+            return "q";
+        case key::r:
+            return "r";
+        case key::s:
+            return "s";
+        case key::t:
+            return "t";
+        case key::u:
+            return "u";
+        case key::v:
+            return "v";
+        case key::w:
+            return "w";
+        case key::x:
+            return "x";
+        case key::y:
+            return "y";
+        case key::z:
+            return "z";
+        case key::digit_0:
+            return "digit_0";
+        case key::digit_1:
+            return "digit_1";
+        case key::digit_2:
+            return "digit_2";
+        case key::digit_3:
+            return "digit_3";
+        case key::digit_4:
+            return "digit_4";
+        case key::digit_5:
+            return "digit_5";
+        case key::digit_6:
+            return "digit_6";
+        case key::digit_7:
+            return "digit_7";
+        case key::digit_8:
+            return "digit_8";
+        case key::digit_9:
+            return "digit_9";
+        case key::backquote:
+            return "backquote";
+        case key::minus:
+            return "minus";
+        case key::equal:
+            return "equal";
+        case key::bracket_left:
+            return "bracket_left";
+        case key::bracket_right:
+            return "bracket_right";
+        case key::backslash:
+            return "backslash";
+        case key::semicolon:
+            return "semicolon";
+        case key::quote:
+            return "quote";
+        case key::comma:
+            return "comma";
+        case key::period:
+            return "period";
+        case key::slash:
+            return "slash";
+        case key::intl_backslash:
+            return "intl_backslash";
+        case key::intl_ro:
+            return "intl_ro";
+        case key::intl_yen:
+            return "intl_yen";
+        case key::backspace:
+            return "backspace";
+        case key::tab:
+            return "tab";
+        case key::enter:
+            return "enter";
+        case key::space:
+            return "space";
+        case key::caps_lock:
+            return "caps_lock";
+        case key::shift_left:
+            return "shift_left";
+        case key::shift_right:
+            return "shift_right";
+        case key::control_left:
+            return "control_left";
+        case key::control_right:
+            return "control_right";
+        case key::alt_left:
+            return "alt_left";
+        case key::alt_right:
+            return "alt_right";
+        case key::meta_left:
+            return "meta_left";
+        case key::meta_right:
+            return "meta_right";
+        case key::context_menu:
+            return "context_menu";
+        case key::convert:
+            return "convert";
+        case key::non_convert:
+            return "non_convert";
+        case key::kana_mode:
+            return "kana_mode";
+        case key::lang_1:
+            return "lang_1";
+        case key::lang_2:
+            return "lang_2";
+        case key::insert:
+            return "insert";
+        case key::delete_key:
+            return "delete";
+        case key::home:
+            return "home";
+        case key::end:
+            return "end";
+        case key::page_up:
+            return "page_up";
+        case key::page_down:
+            return "page_down";
+        case key::arrow_up:
+            return "arrow_up";
+        case key::arrow_down:
+            return "arrow_down";
+        case key::arrow_left:
+            return "arrow_left";
+        case key::arrow_right:
+            return "arrow_right";
+        case key::num_lock:
+            return "num_lock";
+        case key::numpad_0:
+            return "numpad_0";
+        case key::numpad_1:
+            return "numpad_1";
+        case key::numpad_2:
+            return "numpad_2";
+        case key::numpad_3:
+            return "numpad_3";
+        case key::numpad_4:
+            return "numpad_4";
+        case key::numpad_5:
+            return "numpad_5";
+        case key::numpad_6:
+            return "numpad_6";
+        case key::numpad_7:
+            return "numpad_7";
+        case key::numpad_8:
+            return "numpad_8";
+        case key::numpad_9:
+            return "numpad_9";
+        case key::numpad_add:
+            return "numpad_add";
+        case key::numpad_subtract:
+            return "numpad_subtract";
+        case key::numpad_multiply:
+            return "numpad_multiply";
+        case key::numpad_divide:
+            return "numpad_divide";
+        case key::numpad_decimal:
+            return "numpad_decimal";
+        case key::numpad_enter:
+            return "numpad_enter";
+        case key::numpad_comma:
+            return "numpad_comma";
+        case key::numpad_equal:
+            return "numpad_equal";
+        case key::escape:
+            return "escape";
+        case key::f1:
+            return "f1";
+        case key::f2:
+            return "f2";
+        case key::f3:
+            return "f3";
+        case key::f4:
+            return "f4";
+        case key::f5:
+            return "f5";
+        case key::f6:
+            return "f6";
+        case key::f7:
+            return "f7";
+        case key::f8:
+            return "f8";
+        case key::f9:
+            return "f9";
+        case key::f10:
+            return "f10";
+        case key::f11:
+            return "f11";
+        case key::f12:
+            return "f12";
+        case key::f13:
+            return "f13";
+        case key::f14:
+            return "f14";
+        case key::f15:
+            return "f15";
+        case key::f16:
+            return "f16";
+        case key::f17:
+            return "f17";
+        case key::f18:
+            return "f18";
+        case key::f19:
+            return "f19";
+        case key::f20:
+            return "f20";
+        case key::f21:
+            return "f21";
+        case key::f22:
+            return "f22";
+        case key::f23:
+            return "f23";
+        case key::f24:
+            return "f24";
+        case key::print_screen:
+            return "print_screen";
+        case key::scroll_lock:
+            return "scroll_lock";
+        case key::pause:
+            return "pause";
+    }
+
+    return {};
+}
+
+std::optional<key> key_from_name(const std::string_view name) noexcept {
+    // A linear scan over key_name() keeps the two spellings from ever drifting apart; it runs
+    // only when bindings are loaded, so the cost doesn't matter.
+    for (std::size_t index{0}; index < key_count; ++index) {
+        const auto candidate{static_cast<key>(index)};
+        if (key_name(candidate) == name) {
+            return candidate;
+        }
+    }
+
+    return std::nullopt;
+}
+
+} // namespace tca::engine::input

@@ -1,0 +1,32 @@
+{
+  "files.encoding": "utf8",
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "editor.formatOnSave": true,
+  "editor.rulers": [
+    100
+  ],
+  "[cpp]": {
+    "editor.defaultFormatter": "xaver.clang-format"
+  },
+  "C_Cpp.default.cppStandard": "c++23",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+  "C_Cpp.formatting": "disabled",
+  "cmake.sourceDirectory": "${workspaceFolder}",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.configureArgs": [
+    "-DTCA_ENGINE_BUILD_TESTS=ON",
+    "-DTCA_ENGINE_BUILD_EXAMPLES=ON",
+    "-DCMAKE_TOOLCHAIN_FILE=${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+  ],
+  "cmake.ctestArgs": [
+    "--output-on-failure"
+  ],
+  "search.exclude": {
+    "**/build": true,
+    "**/bin": true,
+    "**/lib": true
+  },
+  "testMate.cpp.test.executables": "{bin,BIN,build,Build,BUILD,out,Out,OUT}/**/*{test,Test,TEST}*"
+}
