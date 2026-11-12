@@ -30,7 +30,9 @@ constexpr bool ENABLE_DEBUG_LAYER{true};
 constexpr bool ENABLE_DEBUG_LAYER{false};
 #endif
 
-void enable_debug_layer() {
+// [[maybe_unused]]: its only call sits behind `if constexpr (ENABLE_DEBUG_LAYER)`, so release
+// builds discard it and clang would otherwise fail them with -Wunneeded-internal-declaration.
+[[maybe_unused]] void enable_debug_layer() {
     wil::com_ptr<ID3D12Debug> debugInterface{};
     THROW_IF_FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface)));
     debugInterface->EnableDebugLayer();
